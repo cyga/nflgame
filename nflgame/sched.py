@@ -1,7 +1,11 @@
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except:
+    from ordereddict import OrderedDict  # from PyPI
 import datetime
 import json
 import os.path
+import re
 
 __pdoc__ = {}
 
@@ -20,9 +24,29 @@ def _create_schedule(jsonf=None):
     if jsonf is None:
         jsonf = _sched_json_file
     try:
-        data = json.loads(open(jsonf).read())
+        jsons = open(jsonf).read()
     except IOError:
         return OrderedDict()
+
+    attempt = 1
+    json_changed = False
+    while attempt == 1 or json_changed:
+        json_changed = False
+        try:
+            data = json.loads(jsons)
+        except Exception as e:
+            # try to auto-fix common problem in JSON file
+            # additional "}"
+            # there are number of issues on github and users say about it
+            re_fig = re.compile("\}\s*\}\s*$")
+            if re_fig.search(jsons):
+                jsons = re_fig.sub("}", jsons)
+                json_changed = True
+
+            if not json_changed:
+                raise Exception("can't parse JSON from file: "+jsonf+"\nerror:\n"+str(e))
+        finally:
+            attempt += 1
 
     d = OrderedDict()
     for gsis_id, info in data.get('games', []):

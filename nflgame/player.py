@@ -2,8 +2,9 @@ from __future__ import division
 
 import json
 import os.path
-from collections import OrderedDict
+import re
 
+from nflgame import OrderedDict
 import nflgame.seq
 import nflgame.statmap
 
@@ -18,9 +19,29 @@ def _create_players(jsonf=None):
     if jsonf is None:
         jsonf = _player_json_file
     try:
-        data = json.loads(open(jsonf).read())
+        jsons = open(jsonf).read()
     except IOError:
         return {}
+
+    attempt = 1
+    json_changed = False
+    while attempt == 1 or json_changed:
+        json_changed = False
+        try:
+            data = json.loads(jsons)
+        except ValueError as e:
+            # try to auto-fix common problem in JSON file
+            # additional "}"
+            # there are number of issues on nfldb github about it
+            re_fig = re.compile("\}\s*\}\s*$")
+            if re_fig.search(jsons):
+                jsons = re_fig.sub("}", jsons)
+                json_changed = True
+
+            if not json_changed:
+                raise Exception("can't parse JSON from file: "+jsonf+"\nerror:\n"+str(e), [])
+        finally:
+            attempt += 1
 
     players = {}
     for playerid in data:
